@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="Garageport"/>
+  <meta name="theme-color" content="#0f172a"/>
+  <link rel="manifest" href="/manifest.json"/>
+  <link rel="apple-touch-icon" href="/icon.svg"/>
+  <title>Garageport</title>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0f172a;
+      --surface: #1e293b;
+      --green:   #22c55e;
+      --green2:  #16a34a;
+      --red:     #ef4444;
+      --text:    #f1f5f9;
+      --muted:   #94a3b8;
+      --radius:  16px;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 100dvh;
+      padding: env(safe-area-inset-top, 20px) 24px env(safe-area-inset-bottom, 24px);
+    }
+
+    /* ── Top bar ── */
+    header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 12px;
+    }
+
+    .app-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .app-sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    #settingsBtn {
+      background: var(--surface);
+      border: none;
+      color: var(--muted);
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    #settingsBtn:hover { background: #334155; }
+
+    /* ── Center – main button ── */
+    .center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 28px;
+    }
+
+    .reg-badge {
+      background: var(--surface);
+      border: 1.5px solid #334155;
+      border-radius: 10px;
+      padding: 10px 22px;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      color: var(--text);
+      text-transform: uppercase;
+    }
+
+    /* Big round button */
+    #openBtn {
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      background: var(--green);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 0 0 0 rgba(34,197,94,0.5);
+      transition: background 0.2s, transform 0.15s;
+      -webkit-tap-highlight-color: transparent;
+      position: relative;
+    }
+
+    #openBtn:active {
+      transform: scale(0.94);
+    }
+
+    #openBtn .btn-icon {
+      font-size: 56px;
+      line-height: 1;
+      transition: opacity 0.2s;
+    }
+
+    #openBtn .btn-label {
+      font-size: 18px;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: 0.05em;
+      transition: opacity 0.2s;
+    }
+
+    /* Spinner inside button */
+    .btn-spinner {
+      display: none;
+      width: 48px;
+      height: 48px;
+      border: 5px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #openBtn.loading .btn-icon,
+    #openBtn.loading .btn-label { display: none; }
+    #openBtn.loading .btn-spinner { display: block; }
+    #openBtn.loading { cursor: not-allowed; background: #15803d; }
+
+    #openBtn.success { background: var(--green2); box-shadow: 0 0 0 20px rgba(34,197,94,0); animation: pulse 0.5s ease-out; }
+    #openBtn.error   { background: var(--red); }
+
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(34,197,94,0.6); }
+      100% { box-shadow: 0 0 0 40px rgba(34,197,94,0); }
+    }
+
+    /* ── Status toast ── */
+    #toast {
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #1e293b;
+      color: var(--text);
+      padding: 14px 24px;
+      border-radius: 40px;
+      font-size: 15px;
+      font-weight: 600;
+      white-space: nowrap;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s;
+      opacity: 0;
+      pointer-events: none;
+      border: 1.5px solid #334155;
+      z-index: 100;
+    }
+    #toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+    #toast.success { border-color: var(--green); color: var(--green); }
+    #toast.error   { border-color: var(--red);   color: var(--red);   }
+
+    /* ── Settings sheet ── */
+    .overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 200;
+      align-items: flex-end;
+    }
+    .overlay.open { display: flex; }
+
+    .sheet {
+      background: #1e293b;
+      border-radius: 24px 24px 0 0;
+      padding: 24px 24px calc(env(safe-area-inset-bottom,0px) + 24px);
+      width: 100%;
+      animation: slideUp 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to   { transform: translateY(0); }
+    }
+
+    .sheet h2 {
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      color: var(--text);
+    }
+
+    .sheet label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .sheet input {
+      width: 100%;
+      padding: 14px 16px;
+      background: #0f172a;
+      border: 1.5px solid #334155;
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      text-align: center;
+      outline: none;
+      margin-bottom: 16px;
+    }
+    .sheet input:focus { border-color: var(--green); }
+
+    .sheet-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn-save, .btn-cancel {
+      flex: 1;
+      padding: 14px;
+      border-radius: 12px;
+      border: none;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-save   { background: var(--green); color: #fff; }
+    .btn-cancel { background: #334155; color: var(--muted); }
+
+    /* ── Bottom hint ── */
+    footer {
+      font-size: 12px;
+      color: #475569;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Top bar -->
+<header>
+  <div>
+    <div class="app-title">Garageport</div>
+    <div class="app-sub">Hagastaden P-hus</div>
+  </div>
+  <button id="settingsBtn" onclick="openSettings()" aria-label="Inställningar">⚙️</button>
+</header>
+
+<!-- Main -->
+<div class="center">
+  <div class="reg-badge" id="regDisplay">JAG651</div>
+
+  <button id="openBtn" onclick="openDoor()">
+    <span class="btn-icon">🔓</span>
+    <span class="btn-label">ÖPPNA</span>
+    <div class="btn-spinner"></div>
+  </button>
+</div>
+
+<!-- Footer -->
+<footer>Tryck för att öppna garaget</footer>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Settings sheet -->
+<div class="overlay" id="overlay" onclick="closeSettings(event)">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <h2>Registreringsnummer</h2>
+    <label for="regInput">Ditt fordon</label>
+    <input type="text" id="regInput" maxlength="10" autocomplete="off" autocorrect="off"
+           spellcheck="false" inputmode="text" placeholder="ABC123"/>
+    <div class="sheet-actions">
+      <button class="btn-cancel" onclick="closeSheet()">Avbryt</button>
+      <button class="btn-save"   onclick="saveReg()">Spara</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ── State ── */
+  const STORAGE_KEY = "regnr";
+  let regnr = localStorage.getItem(STORAGE_KEY) || "JAG651";
+  document.getElementById("regDisplay").textContent = regnr;
+
+  /* ── Open door ── */
+  async function openDoor() {
+    const btn = document.getElementById("openBtn");
+    if (btn.classList.contains("loading")) return;
+
+    btn.classList.add("loading");
+
+    try {
+      const res  = await fetch("/api/open", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ regnr }),
+      });
+      const data = await res.json();
+
+      btn.classList.remove("loading");
+      if (data.ok) {
+        btn.classList.add("success");
+        showToast("✅ " + data.msg, "success");
+      } else {
+        btn.classList.add("error");
+        showToast("❌ " + data.msg, "error");
+      }
+    } catch (e) {
+      btn.classList.remove("loading");
+      btn.classList.add("error");
+      showToast("❌ Ingen kontakt med servern", "error");
+    }
+
+    setTimeout(() => {
+      btn.classList.remove("success", "error");
+    }, 2500);
+  }
+
+  /* ── Toast ── */
+  let toastTimer;
+  function showToast(msg, type) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.className   = "show " + (type || "");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.className = ""; }, 3000);
+  }
+
+  /* ── Settings sheet ── */
+  function openSettings() {
+    document.getElementById("regInput").value = regnr;
+    document.getElementById("overlay").classList.add("open");
+    setTimeout(() => document.getElementById("regInput").focus(), 300);
+  }
+
+  function closeSheet() {
+    document.getElementById("overlay").classList.remove("open");
+  }
+
+  function closeSettings(e) {
+    if (e.target === document.getElementById("overlay")) closeSheet();
+  }
+
+  function saveReg() {
+    const val = document.getElementById("regInput").value.toUpperCase().replace(/\s/g, "");
+    if (!val) return;
+    regnr = val;
+    localStorage.setItem(STORAGE_KEY, regnr);
+    document.getElementById("regDisplay").textContent = regnr;
+    closeSheet();
+    showToast("💾 Sparat!", "success");
+  }
+
+  document.getElementById("regInput").addEventListener("keydown", e => {
+    if (e.key === "Enter") saveReg();
+  });
+
+  document.getElementById("regInput").addEventListener("input", function() {
+    this.value = this.value.toUpperCase().replace(/\s/g, "");
+  });
+
+  /* ── PWA service worker ── */
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  }
+</script>
+</body>
+</html>
