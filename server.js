@@ -5,47 +5,9 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-const BASE      = "https://portal2.stockholmparkering.se";
-const GET_PATH  = "/passage?anlaggningsId=105243&dorrId=121500";
-
-// Hjälp: extrahera ett attributvärde oavsett attributordning
-function attr(html, attrName) {
-  const re = new RegExp(`${attrName}="([^"]+)"`, "i");
-  const m  = html.match(re);
-  return m ? m[1] : null;
-}
-
-// Debug-endpoint – visar vad servern ser på Stockholm Parkeringsidan
-app.get("/api/debug", async (req, res) => {
-  try {
-    const getRes = await fetch(BASE + GET_PATH, {
-      headers: { "User-Agent": "Mozilla/5.0", Accept: "text/html" },
-    });
-    const html = await getRes.text();
-
-    // Extrahera formulärblocket
-    const formMatch = html.match(/<form[^>]*id="openDoorForm"[^>]*>[\s\S]*?<\/form>/i)
-                   || html.match(/<form[\s\S]*?<\/form>/i);
-    const formHtml = formMatch ? formMatch[0] : "(form hittades inte)";
-
-    // Hitta alla input-fält
-    const inputs = [...html.matchAll(/<input[^>]*>/gi)].map(m => m[0]);
-
-    const rawCookies = getRes.headers.getSetCookie?.() ?? [];
-
-    res.json({
-      status:       getRes.status,
-      cookies:      rawCookies,
-      token:        attr(html, "__RequestVerificationToken") || attr(html, "value"),
-      formHtml,
-      inputs,
-      // Skicka med 2000 tecken av HTML:en för manuell inspektion
-      htmlSnippet:  html.substring(0, 2000),
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+const BASE     = "https://portal2.stockholmparkering.se";
+const GET_PATH = "/passage?anlaggningsId=105243&dorrId=121500";
+const POST_PATH = "/passage/OpenDoor";
 
 app.post("/api/open", async (req, res) => {
   const regnr = (req.body.regnr || "").toUpperCase().replace(/\s/g, "");
@@ -58,33 +20,28 @@ app.post("/api/open", async (req, res) => {
     });
     const html = await getRes.text();
 
-    // CSRF-token – hantera båda attributordningarna
+    // Extrahera CSRF-token (hanterar båda attributordningarna)
     const tokenMatch = html.match(/name="__RequestVerificationToken"[^>]*value="([^"]+)"/i)
                     || html.match(/value="([^"]+)"[^>]*name="__RequestVerificationToken"/i);
     const token = tokenMatch ? tokenMatch[1] : null;
 
-    // data-url från formuläret – hantera båda ordningarna
-    const dataUrlMatch = html.match(/id="openDoorForm"[^>]*data-url="([^"]+)"/i)
-                      || html.match(/data-url="([^"]+)"[^>]*id="openDoorForm"/i);
-    const postPath = dataUrlMatch ? dataUrlMatch[1] : GET_PATH;
-
-    // Cookies
+    // Extrahera cookies (måste skickas med POST för att CSRF ska fungera)
     const rawCookies = getRes.headers.getSetCookie?.() ?? [];
     const cookie     = rawCookies.map(c => c.split(";")[0]).join("; ");
 
-    // Logga vad vi hittade
-    console.log("token:", token ? "✅ hittad" : "❌ saknas");
-    console.log("postPath:", postPath);
+    console.log("token:", token ? "✅" : "❌ saknas");
     console.log("cookie:", cookie || "(ingen)");
 
-    // 2. POST – öppna dörren
-    const body = new URLSearchParams({ OpenDoorFormData_RegNumber: regnr });
+    // 2. POST med ALLA fält som formuläret skickar
+    const body = new URLSearchParams();
     if (token) body.append("__RequestVerificationToken", token);
+    body.append("OpenDoorFormData.FacilityNumber", "105243");
+    body.append("OpenDoorFormData.DoorId",         "121500");
+    body.append("OpenDoorFormData.FacilityName",   "Hagastaden P-hus, mitt");
+    body.append("OpenDoorFormData.RegNumber",       regnr);   // ← punkt, inte underscore
 
-    const postUrl = postPath.startsWith("http") ? postPath : BASE + postPath;
-
-    const postRes = await fetch(postUrl, {
-      method:  "POST",
+    const postRes = await fetch(BASE + POST_PATH, {
+      method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         "Referer":      BASE + GET_PATH,
@@ -99,12 +56,14 @@ app.post("/api/open", async (req, res) => {
     const lower = text.toLowerCase();
 
     console.log("POST status:", postRes.status);
-    console.log("POST svar (500 tecken):", text.substring(0, 500));
+    console.log("POST svar:", text.substring(0, 300));
 
     if (!postRes.ok)
-      return res.json({ ok: false, msg: `Servern svarade med kod ${postRes.status}. Kontrollera att registreringsnumret är registrerat.` });
+      return res.json({ ok: false, msg: `Servern svarade med kod ${postRes.status}.` });
 
-    if (lower.includes("ogiltigt") || lower.includes("invalid") || lower.includes("inte registrerat") || lower.includes("not found"))
+    if (lower.includes("ogiltigt") || lower.includes("invalid") ||
+        lower.includes("inte registrerat") || lower.includes("not found") ||
+        lower.includes("error"))
       return res.json({ ok: false, msg: "Registreringsnumret verkar inte vara registrerat i systemet." });
 
     res.json({ ok: true, msg: "Dörren öppnas! 🚗" });
