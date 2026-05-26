@@ -1,5 +1,5 @@
 // Service Worker – cachar appen för offline-visning
-const CACHE = "garageport-v1";
+const CACHE = "garageport-v2";
 const ASSETS = ["/", "/index.html", "/manifest.json", "/icon.svg"];
 
 self.addEventListener("install", e =>
