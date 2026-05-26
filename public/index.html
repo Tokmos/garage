@@ -517,9 +517,11 @@
     el.addEventListener("keydown", e => { if (e.key === "Enter") saveSettings(); });
   });
 
-  /* ── PWA ── */
+  /* ── PWA – avregistrera gammal service worker så cachning inte blockerar uppdateringar ── */
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
+    navigator.serviceWorker.getRegistrations().then(regs => {
+      regs.forEach(r => r.unregister());
+    });
   }
 </script>
 </body>
