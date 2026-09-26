@@ -314,6 +314,31 @@
     .btn-cancel { background: #334155; color: var(--muted); }
 
     footer { font-size: 12px; color: #475569; text-align: center; }
+
+    /* ── Flyttmeddelande (visas bara på gamla Render-adressen) ── */
+    #moveBanner {
+      display: none;
+      width: 100%;
+      background: #422006;
+      border: 1.5px solid #f59e0b;
+      border-radius: 16px;
+      padding: 16px 18px;
+      color: #fef3c7;
+      text-decoration: none;
+    }
+    #moveBanner.visible { display: block; }
+    #moveBanner .move-title { font-size: 16px; font-weight: 800; color: #fbbf24; margin-bottom: 6px; }
+    #moveBanner .move-text  { font-size: 14px; line-height: 1.45; }
+    #moveBanner .move-btn {
+      display: block;
+      margin-top: 12px;
+      padding: 12px;
+      background: #f59e0b;
+      color: #1c1917;
+      border-radius: 10px;
+      font-size: 15px; font-weight: 800;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -326,6 +351,18 @@
   </div>
   <button id="settingsBtn" onclick="openSettings()" aria-label="Inställningar">⚙️</button>
 </header>
+
+<!-- Flyttmeddelande -->
+<a id="moveBanner" target="_blank" rel="noopener">
+  <div class="move-title">⚠️ Appen har flyttat</div>
+  <div class="move-text">
+    Den här versionen är långsam och kommer att stängas av.
+    Öppna den nya appen och lägg till den på hemskärmen
+    (Dela → Lägg till på hemskärmen). Ta sedan bort den här ikonen.
+    Dina registreringsnummer följer med.
+  </div>
+  <span class="move-btn">Öppna nya appen →</span>
+</a>
 
 <!-- Single vehicle view -->
 <div id="singleView">
@@ -398,6 +435,18 @@
 </div>
 
 <script>
+  /* ── Flytt: ta emot inställningar från gamla Render-appen via länken ── */
+  (function importFromUrl() {
+    const p = new URLSearchParams(location.search);
+    if (!p.has("regnr")) return;
+    const clean = v => (v || "").toUpperCase().replace(/[^A-Z0-9ÅÄÖ]/g, "").slice(0, 11);
+    const r1 = clean(p.get("regnr")), r2 = clean(p.get("regnr2"));
+    if (r1) localStorage.setItem("regnr", r1);
+    if (r2) localStorage.setItem("regnr2", r2);
+    if (p.has("two")) localStorage.setItem("twoVehicles", p.get("two") === "true");
+    history.replaceState(null, "", location.pathname);
+  })();
+
   /* ── State ── */
   const state = {
     regnr:      localStorage.getItem("regnr")       || "ABC123",
@@ -422,6 +471,15 @@
   }
 
   applyState();
+
+  /* ── Flytt: visa meddelande på gamla Render-adressen ── */
+  const NEW_APP_URL = "https://garage-six-lyart.vercel.app/";
+  if (location.hostname.endsWith(".onrender.com")) {
+    const q = new URLSearchParams({ regnr: state.regnr, regnr2: state.regnr2, two: state.twoVehicles });
+    const banner = document.getElementById("moveBanner");
+    banner.href = NEW_APP_URL + "?" + q;
+    banner.classList.add("visible");
+  }
 
   /* ── Open door ── */
   async function openDoor(btnId, regnr) {
