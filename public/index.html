@@ -315,6 +315,37 @@
 
     footer { font-size: 12px; color: #475569; text-align: center; }
 
+    /* ── Dörrval ── */
+    #doorBar {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    #doorStatus {
+      font-size: 14px;
+      color: var(--muted);
+      text-align: center;
+      min-height: 20px;
+    }
+    #doorStatus.warn { color: #fbbf24; }
+    #doorChips { display: flex; gap: 8px; }
+    .door-chip {
+      flex: 1;
+      padding: 10px 6px;
+      background: var(--surface);
+      border: 1.5px solid #334155;
+      border-radius: 12px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.25;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, color 0.2s;
+    }
+    .door-chip.selected { border-color: var(--green); color: var(--text); background: #14532d; }
+    .door-chip .chip-dist { display: block; font-size: 11px; font-weight: 600; color: var(--muted); margin-top: 2px; }
+
     /* ── Flyttmeddelande (visas bara på gamla Render-adressen) ── */
     #moveBanner {
       display: none;
@@ -363,6 +394,12 @@
   </div>
   <span class="move-btn">Öppna nya appen →</span>
 </a>
+
+<!-- Dörrval: närmaste dörr via GPS, eller manuellt -->
+<div id="doorBar">
+  <div id="doorStatus">📍 Söker position…</div>
+  <div id="doorChips"></div>
+</div>
 
 <!-- Single vehicle view -->
 <div id="singleView">
@@ -481,21 +518,106 @@
     banner.classList.add("visible");
   }
 
+  /* ── Dörrval ── */
+  const FAR_AWAY_M = 1000;   // längre bort än så: använd senast använda dörr
+  let DOORS      = [];
+  let position   = null;     // { lat, lng, acc }
+  let geoError   = null;
+  let manualDoor = null;     // dörr-id som användaren valt för hand
+  let lastDoor   = localStorage.getItem("lastDoor") || "121500";
+
+  function distanceM(lat1, lng1, lat2, lng2) {
+    const R = 6371000, rad = Math.PI / 180;
+    const dLat = (lat2 - lat1) * rad, dLng = (lng2 - lng1) * rad;
+    const a = Math.sin(dLat / 2) ** 2 +
+              Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
+
+  // Returnerar { door, mode } där mode är "manual" | "gps" | "uncertain" | "far" | "nopos"
+  function resolveDoor() {
+    const byId = id => DOORS.find(d => d.id === id) || DOORS[0];
+    if (manualDoor) return { door: byId(manualDoor), mode: "manual" };
+    if (!position)  return { door: byId(lastDoor),   mode: "nopos" };
+
+    const ranked = DOORS
+      .map(d => ({ d, dist: distanceM(position.lat, position.lng, d.lat, d.lng) }))
+      .sort((a, b) => a.dist - b.dist);
+    const [first, second] = ranked;
+
+    if (first.dist > FAR_AWAY_M) return { door: byId(lastDoor), mode: "far" };
+    // Säker bara om positionens osäkerhet är mindre än skillnaden till näst närmaste dörr
+    if (second && second.dist - first.dist <= position.acc)
+      return { door: first.d, mode: "uncertain" };
+    return { door: first.d, mode: "gps" };
+  }
+
+  function renderDoors() {
+    if (!DOORS.length) return;
+    const { door, mode } = resolveDoor();
+    const status = document.getElementById("doorStatus");
+    const dist   = d => position ? Math.round(distanceM(position.lat, position.lng, d.lat, d.lng)) : null;
+
+    const texts = {
+      manual:    `✋ Vald: ${door.name} · tryck igen för automatiskt`,
+      gps:       `📍 Närmast: ${door.name} · ${dist(door)} m`,
+      uncertain: `⚠️ Osäker position (±${Math.round(position?.acc || 0)} m) · ${door.name}?`,
+      far:       `📍 Långt från garaget · använder ${door.name}`,
+      nopos:     geoError ? `📍 Ingen position · välj dörr` : `📍 Söker position…`,
+    };
+    status.textContent = texts[mode];
+    status.classList.toggle("warn", mode === "uncertain");
+
+    document.getElementById("doorChips").innerHTML = DOORS.map(d => {
+      const m = dist(d);
+      return `<button class="door-chip${d.id === door.id ? " selected" : ""}" onclick="pickDoor('${d.id}')">
+                ${d.name}${m !== null && m <= FAR_AWAY_M ? `<span class="chip-dist">${m} m</span>` : ""}
+              </button>`;
+    }).join("");
+  }
+
+  function pickDoor(id) {
+    // Tryck på redan manuellt vald dörr = tillbaka till automatiskt val
+    manualDoor = manualDoor === id ? null : id;
+    renderDoors();
+  }
+
+  function startGeolocation() {
+    if (!("geolocation" in navigator)) { geoError = "unsupported"; renderDoors(); return; }
+    navigator.geolocation.watchPosition(
+      p => {
+        position = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy };
+        geoError = null;
+        renderDoors();
+      },
+      err => { geoError = err.code; renderDoors(); },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
+    );
+  }
+
+  fetch("/doors.json")
+    .then(r => r.json())
+    .then(list => { DOORS = list; renderDoors(); startGeolocation(); })
+    .catch(() => { document.getElementById("doorStatus").textContent = "Kunde inte ladda dörrar"; });
+
   /* ── Open door ── */
   async function openDoor(btnId, regnr) {
     const btn = document.getElementById(btnId);
     if (btn.classList.contains("loading")) return;
     btn.classList.add("loading");
 
+    const { door } = resolveDoor();
+
     try {
       const res  = await fetch("/api/open", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ regnr }),
+        body:    JSON.stringify({ regnr, doorId: door?.id }),
       });
       const data = await res.json();
       btn.classList.remove("loading");
       if (data.ok) {
+        if (door) localStorage.setItem("lastDoor", lastDoor = door.id);
         btn.classList.add("success");
         showToast("✅ " + data.msg, "success");
       } else {

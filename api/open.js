@@ -4,6 +4,6 @@ const { openDoor } = require("../lib/openDoor");
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ ok: false, msg: "Endast POST." });
 
-  const { status, ok, msg } = await openDoor(req.body?.regnr);
+  const { status, ok, msg } = await openDoor(req.body?.regnr, req.body?.doorId);
   res.status(status).json({ ok, msg });
 };

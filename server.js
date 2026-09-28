@@ -8,7 +8,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
 app.post("/api/open", async (req, res) => {
-  const { status, ok, msg } = await openDoor(req.body.regnr);
+  const { status, ok, msg } = await openDoor(req.body.regnr, req.body.doorId);
   res.status(status).json({ ok, msg });
 });
 
