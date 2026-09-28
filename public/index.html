@@ -464,6 +464,18 @@
              autocorrect="off" spellcheck="false" inputmode="text" placeholder="ABC123"/>
     </div>
 
+    <!-- Toggle: GPS -->
+    <div class="toggle-row" onclick="flipToggle('gpsToggle')">
+      <div>
+        <div class="toggle-label">Använd GPS</div>
+        <div class="toggle-sub">Föreslå den dörr som är närmast</div>
+      </div>
+      <label class="toggle-switch" onclick="event.stopPropagation()">
+        <input type="checkbox" id="gpsToggle"/>
+        <div class="toggle-track"></div>
+      </label>
+    </div>
+
     <div class="sheet-actions">
       <button class="btn-cancel" onclick="closeSheet()">Avbryt</button>
       <button class="btn-save"   onclick="saveSettings()">Spara</button>
@@ -523,8 +535,10 @@
   let DOORS      = [];
   let position   = null;     // { lat, lng, acc }
   let geoError   = null;
-  let manualDoor = null;     // dörr-id som användaren valt för hand
+  let manualDoor = null;     // dörr-id som användaren valt för hand (bara med GPS på)
   let lastDoor   = localStorage.getItem("lastDoor") || "121500";
+  let useGps     = localStorage.getItem("useGps") === "true";
+  let watchId    = null;
 
   function distanceM(lat1, lng1, lat2, lng2) {
     const R = 6371000, rad = Math.PI / 180;
@@ -534,9 +548,10 @@
     return 2 * R * Math.asin(Math.sqrt(a));
   }
 
-  // Returnerar { door, mode } där mode är "manual" | "gps" | "uncertain" | "far" | "nopos"
+  // Returnerar { door, mode } där mode är "off" | "manual" | "gps" | "uncertain" | "far" | "nopos"
   function resolveDoor() {
     const byId = id => DOORS.find(d => d.id === id) || DOORS[0];
+    if (!useGps)    return { door: byId(lastDoor),   mode: "off" };
     if (manualDoor) return { door: byId(manualDoor), mode: "manual" };
     if (!position)  return { door: byId(lastDoor),   mode: "nopos" };
 
@@ -556,10 +571,11 @@
     if (!DOORS.length) return;
     const { door, mode } = resolveDoor();
     const status = document.getElementById("doorStatus");
-    const dist   = d => position ? Math.round(distanceM(position.lat, position.lng, d.lat, d.lng)) : null;
+    const dist   = d => useGps && position ? Math.round(distanceM(position.lat, position.lng, d.lat, d.lng)) : null;
 
     const texts = {
-      manual:    `✋ Vald: ${door.name} · tryck igen för automatiskt`,
+      off:       `Välj dörr och tryck Öppna`,
+      manual:   `✋ Vald: ${door.name} · tryck igen för automatiskt`,
       gps:       `📍 Närmast: ${door.name} · ${dist(door)} m`,
       uncertain: `⚠️ Osäker position (±${Math.round(position?.acc || 0)} m) · ${door.name}?`,
       far:       `📍 Långt från garaget · använder ${door.name}`,
@@ -577,14 +593,30 @@
   }
 
   function pickDoor(id) {
-    // Tryck på redan manuellt vald dörr = tillbaka till automatiskt val
-    manualDoor = manualDoor === id ? null : id;
+    // Valet sparas så att det är förvalt nästa gång
+    localStorage.setItem("lastDoor", lastDoor = id);
+    // Med GPS: tryck på redan manuellt vald dörr = tillbaka till automatiskt val
+    if (useGps) manualDoor = manualDoor === id ? null : id;
+    renderDoors();
+  }
+
+  function setGps(on) {
+    useGps = on;
+    localStorage.setItem("useGps", on);
+    manualDoor = null;
+    if (on) {
+      startGeolocation();
+    } else {
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      watchId = null; position = null; geoError = null;
+    }
     renderDoors();
   }
 
   function startGeolocation() {
+    if (watchId !== null) return;
     if (!("geolocation" in navigator)) { geoError = "unsupported"; renderDoors(); return; }
-    navigator.geolocation.watchPosition(
+    watchId = navigator.geolocation.watchPosition(
       p => {
         position = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy };
         geoError = null;
@@ -597,7 +629,7 @@
 
   fetch("/doors.json")
     .then(r => r.json())
-    .then(list => { DOORS = list; renderDoors(); startGeolocation(); })
+    .then(list => { DOORS = list; renderDoors(); if (useGps) startGeolocation(); })
     .catch(() => { document.getElementById("doorStatus").textContent = "Kunde inte ladda dörrar"; });
 
   /* ── Open door ── */
@@ -649,6 +681,7 @@
     document.getElementById("regInput2").value = state.regnr2;
     document.getElementById("twoVehiclesToggle").checked = state.twoVehicles;
     document.getElementById("vehicle2Section").classList.toggle("visible", state.twoVehicles);
+    document.getElementById("gpsToggle").checked = useGps;
     document.getElementById("overlay").classList.add("open");
     setTimeout(() => document.getElementById("regInput1").focus(), 300);
   }
@@ -669,6 +702,11 @@
     sec.classList.toggle("visible", cb.checked);
   }
 
+  function flipToggle(id) {
+    const cb = document.getElementById(id);
+    if (document.activeElement !== cb) cb.checked = !cb.checked;
+  }
+
   function saveSettings() {
     const v1 = document.getElementById("regInput1").value.toUpperCase().replace(/\s/g,"");
     const v2 = document.getElementById("regInput2").value.toUpperCase().replace(/\s/g,"");
@@ -684,6 +722,9 @@
     localStorage.setItem("regnr",       state.regnr);
     localStorage.setItem("regnr2",      state.regnr2);
     localStorage.setItem("twoVehicles", state.twoVehicles);
+
+    const gps = document.getElementById("gpsToggle").checked;
+    if (gps !== useGps) setGps(gps);
 
     applyState();
     closeSheet();
