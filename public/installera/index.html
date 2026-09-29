@@ -494,9 +494,12 @@
     iphoneLink.href = (isIOS && !inSafari)
       ? "x-safari-" + appUrl                              // iOS 17+: tvingar Safari
       : appUrl;
+    // Chromes eget schema (googlechrome://navigate?url=…) i en intent. Ett vanligt https-intent
+    // hanterar Edge själv och blir kvar i Edge; det här schemat kan bara Chrome ta emot.
     androidLink.href = (isAndroid && !inChrome)
-      ? "intent://" + host + "/#Intent;scheme=" + location.protocol.replace(":", "") +
-        ";package=com.android.chrome;S.browser_fallback_url=" + encodeURIComponent(appUrl) + ";end"
+      ? "intent://navigate?url=" + encodeURIComponent(appUrl) +
+        "#Intent;scheme=googlechrome;package=com.android.chrome;S.browser_fallback_url=" +
+        encodeURIComponent(appUrl) + ";end"
       : appUrl;
 
     function warn(platform, target) {
