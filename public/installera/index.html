@@ -236,6 +236,22 @@
   .picker button:focus-visible { outline: 3px solid var(--sign); outline-offset: 2px; }
   .picker-hint { font-size: 13px; color: var(--muted); text-align: center; margin: -4px 0 0; }
 
+  /* Öppna i rätt webbläsare */
+  .open-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin-top: 12px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 800; font-size: 17px;
+    text-decoration: none;
+    text-align: center;
+  }
+  .open-btn:focus-visible { outline: 3px solid var(--sign); outline-offset: 2px; }
+  .open-help { font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .wrong-browser { margin-top: 10px; }
+
   @media (prefers-reduced-motion: no-preference) {
     .copy-btn { transition: background 0.2s; }
     .picker button { transition: background 0.2s, color 0.2s; }
@@ -284,6 +300,9 @@
         <div>
           <div class="t">Öppna adressen i Safari</div>
           <div class="d">Det måste vara <strong>Safari</strong>. Andra webbläsare på iPhone lägger inte till appen på samma sätt.</div>
+          <div class="note wrong-browser" data-wrong="iphone" hidden></div>
+          <a class="open-btn" id="open-iphone" href="/">Öppna appen i Safari</a>
+          <div class="open-help">Händer inget? Tryck på <strong>Kopiera</strong> ovan, öppna Safari och klistra in adressen.</div>
         </div>
       </li>
       <li>
@@ -332,6 +351,9 @@
         <div>
           <div class="t">Öppna adressen i Chrome</div>
           <div class="d">Använd <strong>Chrome</strong>. Har du en Samsung med Samsung Internet, se tipset under stegen.</div>
+          <div class="note wrong-browser" data-wrong="android" hidden></div>
+          <a class="open-btn" id="open-android" href="/">Öppna appen i Chrome</a>
+          <div class="open-help">Händer inget? Tryck på <strong>Kopiera</strong> ovan, öppna Chrome och klistra in adressen.</div>
         </div>
       </li>
       <li>
@@ -446,6 +468,46 @@
         try { history.replaceState(null, "", "#" + x); } catch (e) {}
       });
     });
+
+    /* ── Öppna appen i rätt webbläsare (Teams öppnar ofta länkar i Edge) ── */
+    var ua = navigator.userAgent || "";
+    var isIOS = /iphone|ipad|ipod/i.test(ua);
+    var isAndroid = /android/i.test(ua);
+    var host = location.host;
+    var appUrl = location.protocol + "//" + host + "/";
+
+    function browserName() {
+      if (/EdgiOS|EdgA|Edg\//.test(ua)) return "Edge";
+      if (/Teams/i.test(ua)) return "Teams";
+      if (/CriOS/.test(ua)) return "Chrome";
+      if (/FxiOS|Firefox/.test(ua)) return "Firefox";
+      if (/SamsungBrowser/.test(ua)) return "Samsung Internet";
+      return null;
+    }
+    // Safari på iPhone: har "Safari" men inga andra webbläsares märken (inbyggda app-webbläsare saknar "Safari")
+    var inSafari = isIOS && /Safari\//.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS|GSA|YaBrowser|DuckDuckGo|Teams/i.test(ua);
+    // Chrome på Android: inte Edge, Samsung, Opera, Firefox eller en app-webbläsare ("; wv)")
+    var inChrome = isAndroid && /Chrome\//.test(ua) && !/EdgA|SamsungBrowser|OPR|Firefox|YaBrowser|; wv\)|Teams/i.test(ua);
+
+    var iphoneLink = document.getElementById("open-iphone");
+    var androidLink = document.getElementById("open-android");
+    iphoneLink.href = (isIOS && !inSafari)
+      ? "x-safari-" + appUrl                              // iOS 17+: tvingar Safari
+      : appUrl;
+    androidLink.href = (isAndroid && !inChrome)
+      ? "intent://" + host + "/#Intent;scheme=" + location.protocol.replace(":", "") +
+        ";package=com.android.chrome;S.browser_fallback_url=" + encodeURIComponent(appUrl) + ";end"
+      : appUrl;
+
+    function warn(platform, target) {
+      var el = document.querySelector('[data-wrong="' + platform + '"]');
+      var name = browserName();
+      el.innerHTML = "<b>Du använder " + (name ? name : "en annan webbläsare än " + target) + ".</b> " +
+        "Tryck på knappen nedan så öppnas appen i " + target + ".";
+      el.hidden = false;
+    }
+    if (isIOS && !inSafari) warn("iphone", "Safari");
+    if (isAndroid && !inChrome) warn("android", "Chrome");
 
     document.getElementById("copy-btn").addEventListener("click", function () {
       var btn = this;
