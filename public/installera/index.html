@@ -251,6 +251,14 @@
   .open-btn:focus-visible { outline: 3px solid var(--sign); outline-offset: 2px; }
   .open-help { font-size: 13px; color: var(--muted); margin-top: 8px; }
   .wrong-browser { margin-top: 10px; }
+  .subpicker { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); font-weight: 600; }
+  .subpicker button {
+    font: inherit; font-weight: 800; font-size: 14px;
+    padding: 6px 14px; border-radius: 999px;
+    border: 1.5px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer;
+  }
+  .subpicker button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
+  .subpicker button:focus-visible { outline: 3px solid var(--sign); outline-offset: 2px; }
 
   @media (prefers-reduced-motion: no-preference) {
     .copy-btn { transition: background 0.2s; }
@@ -346,14 +354,55 @@
   <!-- Android -->
   <section id="panel-android" role="tabpanel" aria-labelledby="tab-android" hidden>
     <h2>Lägg till på startskärmen · Android</h2>
-    <ol class="steps">
+    <div class="subpicker" role="group" aria-label="Välj webbläsare">
+      <span>Webbläsare:</span>
+      <button type="button" data-browser-btn="edge" aria-pressed="false">Edge</button>
+      <button type="button" data-browser-btn="chrome" aria-pressed="true">Chrome</button>
+    </div>
+    <p class="picker-hint" id="browser-hint" hidden></p>
+
+    <!-- Edge (t.ex. jobbtelefon där bara Edge finns i arbetsprofilen) -->
+    <ol class="steps" data-browser="edge" hidden>
+      <li>
+        <div>
+          <div class="t">Öppna adressen i Edge</div>
+          <div class="d">Har du öppnat länken från Teams är du troligen redan i Edge. Tryck på knappen för att gå till appen.</div>
+          <a class="open-btn" href="/">Öppna appen</a>
+        </div>
+      </li>
+      <li>
+        <div>
+          <div class="t">Tryck på menyn</div>
+          <div class="d">De tre prickarna <span class="ui">⋯</span> i verktygsfältet längst ner.</div>
+        </div>
+      </li>
+      <li>
+        <div>
+          <div class="t">Välj ”Lägg till på telefonen”</div>
+          <div class="d">Svep åt vänster i menyn om du inte ser valet direkt. På vissa telefoner heter det <span class="ui">Installera app</span> eller <span class="ui">Lägg till på startskärmen</span>.</div>
+        </div>
+      </li>
+      <li>
+        <div>
+          <div class="t">Tryck på Installera</div>
+          <div class="d">Namnet blir <strong>Garageport</strong>. Bekräfta om telefonen frågar igen.</div>
+        </div>
+      </li>
+      <li class="done">
+        <div>
+          <div class="t">Klart</div>
+          <div class="d">Ikonen ligger på startskärmen. På en jobbtelefon hamnar den bland jobbapparna (med en liten portfölj på ikonen).</div>
+        </div>
+      </li>
+    </ol>
+
+    <!-- Chrome -->
+    <ol class="steps" data-browser="chrome">
       <li>
         <div>
           <div class="t">Öppna adressen i Chrome</div>
-          <div class="d">Använd <strong>Chrome</strong>. Har du en Samsung med Samsung Internet, se tipset under stegen.</div>
-          <div class="note wrong-browser" data-wrong="android" hidden></div>
-          <a class="open-btn" id="open-android" href="/">Öppna appen i Chrome</a>
-          <div class="open-help">Händer inget? Tryck på <strong>Kopiera</strong> ovan, öppna Chrome och klistra in adressen.</div>
+          <div class="d">Tryck på knappen, eller kopiera adressen ovan och klistra in den i Chrome.</div>
+          <a class="open-btn" href="/">Öppna appen</a>
         </div>
       </li>
       <li>
@@ -421,9 +470,9 @@
     </div>
     <div class="note" data-platform="android" hidden>
       Står det <b>”Ingen position”</b> har telefonen nekat platsåtkomst. Kontrollera att
-      <strong>Plats</strong> är påslaget i snabbinställningarna. Öppna sedan Chrome och gå till
-      <strong>⋮ → Inställningar → Webbplatsinställningar → Plats</strong> och tillåt
-      garage-six-lyart.vercel.app. Du kan alltid välja dörr för hand i stället.
+      <strong>Plats</strong> är påslaget i snabbinställningarna. Öppna sedan webbläsarens inställningar och tillåt plats för garage-six-lyart.vercel.app: i Chrome under
+      <strong>⋮ → Inställningar → Webbplatsinställningar → Plats</strong>, i Edge under
+      <strong>⋯ → Inställningar → Sekretess och säkerhet → Webbplatsbehörigheter → Plats</strong>. Du kan alltid välja dörr för hand i stället.
     </div>
   </section>
 
@@ -486,31 +535,44 @@
     }
     // Safari på iPhone: har "Safari" men inga andra webbläsares märken (inbyggda app-webbläsare saknar "Safari")
     var inSafari = isIOS && /Safari\//.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS|GSA|YaBrowser|DuckDuckGo|Teams/i.test(ua);
-    // Chrome på Android: inte Edge, Samsung, Opera, Firefox eller en app-webbläsare ("; wv)")
-    var inChrome = isAndroid && /Chrome\//.test(ua) && !/EdgA|SamsungBrowser|OPR|Firefox|YaBrowser|; wv\)|Teams/i.test(ua);
-
     var iphoneLink = document.getElementById("open-iphone");
-    var androidLink = document.getElementById("open-android");
     iphoneLink.href = (isIOS && !inSafari)
       ? "x-safari-" + appUrl                              // iOS 17+: tvingar Safari
       : appUrl;
-    // Chromes eget schema (googlechrome://navigate?url=…) i en intent. Ett vanligt https-intent
-    // hanterar Edge själv och blir kvar i Edge; det här schemat kan bara Chrome ta emot.
-    androidLink.href = (isAndroid && !inChrome)
-      ? "intent://navigate?url=" + encodeURIComponent(appUrl) +
-        "#Intent;scheme=googlechrome;package=com.android.chrome;S.browser_fallback_url=" +
-        encodeURIComponent(appUrl) + ";end"
-      : appUrl;
 
-    function warn(platform, target) {
-      var el = document.querySelector('[data-wrong="' + platform + '"]');
+    if (isIOS && !inSafari) {
+      var el = document.querySelector('[data-wrong="iphone"]');
       var name = browserName();
-      el.innerHTML = "<b>Du använder " + (name ? name : "en annan webbläsare än " + target) + ".</b> " +
-        "Tryck på knappen nedan så öppnas appen i " + target + ".";
+      el.innerHTML = "<b>Du använder " + (name ? name : "en annan webbläsare än Safari") + ".</b> " +
+        "Tryck på knappen nedan så öppnas appen i Safari.";
       el.hidden = false;
     }
-    if (isIOS && !inSafari) warn("iphone", "Safari");
-    if (isAndroid && !inChrome) warn("android", "Chrome");
+
+    /* ── Android: steg för Edge eller Chrome ──
+       På jobbtelefoner finns ofta bara Edge i arbetsprofilen (dit Teams öppnar länkar),
+       och en länk kan inte hoppa till Chrome i den privata profilen. Därför visar vi
+       Edge-stegen i stället för att försöka byta webbläsare. */
+    function showBrowser(b) {
+      document.querySelectorAll("[data-browser]").forEach(function (el) {
+        el.hidden = el.getAttribute("data-browser") !== b;
+      });
+      document.querySelectorAll("[data-browser-btn]").forEach(function (btn) {
+        btn.setAttribute("aria-pressed", btn.getAttribute("data-browser-btn") === b ? "true" : "false");
+      });
+    }
+    var inEdgeOrTeams = isAndroid && /EdgA|Teams|; wv\)/i.test(ua);
+    showBrowser(inEdgeOrTeams ? "edge" : "chrome");
+    if (isAndroid && /EdgA/.test(ua)) {
+      var bh = document.getElementById("browser-hint");
+      bh.textContent = "Du använder Edge, så vi visar stegen för Edge.";
+      bh.hidden = false;
+    }
+    document.querySelectorAll("[data-browser-btn]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        showBrowser(btn.getAttribute("data-browser-btn"));
+        document.getElementById("browser-hint").hidden = true;
+      });
+    });
 
     document.getElementById("copy-btn").addEventListener("click", function () {
       var btn = this;
