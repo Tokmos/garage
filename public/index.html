@@ -80,6 +80,19 @@
       justify-content: center;
     }
 
+    /* Regnumret är klickbart och öppnar inställningarna */
+    .reg-edit { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    .reg-edit::after {
+      content: "✎";
+      font-size: 0.6em;
+      color: var(--muted);
+      margin-left: 0.5em;
+      letter-spacing: 0;
+      vertical-align: middle;
+    }
+    .reg-edit:active { opacity: 0.7; }
+    .reg-edit:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+
     .reg-badge {
       background: var(--surface);
       border: 1.5px solid #334155;
@@ -403,7 +416,7 @@
 
 <!-- Single vehicle view -->
 <div id="singleView">
-  <div class="reg-badge" id="regDisplay">ABC123</div>
+  <div class="reg-badge reg-edit" id="regDisplay" role="button" tabindex="0" aria-label="Ändra registreringsnummer" data-focus="regInput1">ABC123</div>
   <button id="openBtn" onclick="openDoor('openBtn', state.regnr)">
     <span class="btn-icon">🔓</span>
     <span class="btn-label">ÖPPNA</span>
@@ -414,7 +427,7 @@
 <!-- Dual vehicle view -->
 <div id="dualView">
   <div class="vehicle-card">
-    <div class="vehicle-reg" id="regDisplay1">ABC123</div>
+    <div class="vehicle-reg reg-edit" id="regDisplay1" role="button" tabindex="0" aria-label="Ändra registreringsnummer för fordon 1" data-focus="regInput1">ABC123</div>
     <button class="vehicle-btn" id="openBtn1" onclick="openDoor('openBtn1', state.regnr)">
       <span class="vbtn-icon">🔓</span>
       <span class="vbtn-label">ÖPPNA</span>
@@ -422,7 +435,7 @@
     </button>
   </div>
   <div class="vehicle-card">
-    <div class="vehicle-reg" id="regDisplay2">ABC123</div>
+    <div class="vehicle-reg reg-edit" id="regDisplay2" role="button" tabindex="0" aria-label="Ändra registreringsnummer för fordon 2" data-focus="regInput2">ABC123</div>
     <button class="vehicle-btn" id="openBtn2" onclick="openDoor('openBtn2', state.regnr2)">
       <span class="vbtn-icon">🔓</span>
       <span class="vbtn-label">ÖPPNA</span>
@@ -676,15 +689,26 @@
   }
 
   /* ── Settings ── */
-  function openSettings() {
+  function openSettings(focusId) {
     document.getElementById("regInput1").value = state.regnr;
     document.getElementById("regInput2").value = state.regnr2;
     document.getElementById("twoVehiclesToggle").checked = state.twoVehicles;
     document.getElementById("vehicle2Section").classList.toggle("visible", state.twoVehicles);
     document.getElementById("gpsToggle").checked = useGps;
     document.getElementById("overlay").classList.add("open");
-    setTimeout(() => document.getElementById("regInput1").focus(), 300);
+    // Fokusera direkt (inte i en timeout) – annars visar iPhone inte tangentbordet
+    const input = document.getElementById(typeof focusId === "string" ? focusId : "regInput1");
+    input.focus();
+    input.select();
   }
+
+  // Tryck på ett regnummer → inställningarna med rätt fält i fokus
+  document.querySelectorAll(".reg-edit").forEach(el => {
+    el.addEventListener("click", () => openSettings(el.dataset.focus));
+    el.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openSettings(el.dataset.focus); }
+    });
+  });
 
   function closeSheet() {
     document.getElementById("overlay").classList.remove("open");
