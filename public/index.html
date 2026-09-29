@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-title" content="Garageport"/>
   <meta name="theme-color" content="#0f172a"/>
   <link rel="manifest" href="/manifest.json"/>
-  <link rel="apple-touch-icon" href="/icon.svg"/>
+  <link rel="apple-touch-icon" href="/icon-192.png"/>
   <title>Garageport</title>
 
   <style>
@@ -738,11 +738,10 @@
     el.addEventListener("keydown", e => { if (e.key === "Enter") saveSettings(); });
   });
 
-  /* ── PWA – avregistrera gammal service worker så cachning inte blockerar uppdateringar ── */
+  /* ── PWA – service worker utan cache (krävs för att appen ska kunna installeras).
+       Den ersätter den gamla cachande versionen och rensar dess cachar. ── */
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.getRegistrations().then(regs => {
-      regs.forEach(r => r.unregister());
-    });
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
   }
 </script>
 </body>

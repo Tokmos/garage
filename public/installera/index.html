@@ -5,7 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f172a">
 <link rel="icon" href="/icon.svg">
+<link rel="manifest" href="/manifest.json">
 <title>Installera Garageport</title>
+<script>
+  // Fånga installationserbjudandet (Chrome/Edge/Samsung på Android) så tidigt som möjligt
+  window.__installEvt = null;
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault();
+    window.__installEvt = e;
+    document.dispatchEvent(new Event("installready"));
+  });
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(function () {});
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Overpass:wght@400;600;800;900&family=Overpass+Mono:wght@500;600&display=swap">
@@ -251,6 +262,24 @@
   .open-btn:focus-visible { outline: 3px solid var(--sign); outline-offset: 2px; }
   .open-help { font-size: 13px; color: var(--muted); margin-top: 8px; }
   .wrong-browser { margin-top: 10px; }
+
+  /* Installera med ett tryck */
+  .install-card {
+    background: var(--accent-soft);
+    border: 1.5px solid var(--accent);
+    border-radius: 16px;
+    padding: 18px;
+    display: flex; flex-direction: column; gap: 10px;
+    text-align: center;
+  }
+  .install-card .t { font-weight: 900; font-size: 20px; line-height: 1.2; }
+  .install-card .d { color: var(--muted); font-size: 15px; }
+  .install-card button {
+    font: inherit; font-weight: 900; font-size: 19px;
+    padding: 16px; border: none; border-radius: 12px;
+    background: var(--accent); color: #fff; cursor: pointer;
+  }
+  .install-card button:focus-visible { outline: 3px solid var(--sign); outline-offset: 2px; }
   .subpicker { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); font-weight: 600; }
   .subpicker button {
     font: inherit; font-weight: 800; font-size: 14px;
@@ -290,6 +319,13 @@
       </button>
     </div>
     <p class="picker-hint" id="picker-hint" hidden></p>
+  </section>
+
+  <!-- Visas bara när webbläsaren kan installera direkt (Chrome/Edge/Samsung på Android) -->
+  <section class="install-card" id="install-card" aria-live="polite" hidden>
+    <div class="t" id="install-title">Installera med ett tryck</div>
+    <div class="d" id="install-text">Tryck på knappen och sedan på <strong>Installera</strong> i rutan som dyker upp. Då hamnar Garageport på startskärmen.</div>
+    <button type="button" id="install-btn">Installera Garageport</button>
   </section>
 
   <section aria-labelledby="h-url">
@@ -572,6 +608,35 @@
         showBrowser(btn.getAttribute("data-browser-btn"));
         document.getElementById("browser-hint").hidden = true;
       });
+    });
+
+    /* ── Installera med ett tryck ── */
+    var card = document.getElementById("install-card");
+    var installBtn = document.getElementById("install-btn");
+    function installDone(title, text) {
+      document.getElementById("install-title").textContent = title;
+      document.getElementById("install-text").textContent = text;
+      installBtn.hidden = true;
+      card.hidden = false;
+    }
+    function offerInstall() { if (window.__installEvt) card.hidden = false; }
+    offerInstall();
+    document.addEventListener("installready", offerInstall);
+    installBtn.addEventListener("click", function () {
+      var evt = window.__installEvt;
+      if (!evt) return;
+      window.__installEvt = null;
+      evt.prompt();
+      evt.userChoice.then(function (r) {
+        if (r.outcome === "accepted") {
+          installDone("Klart! 🎉", "Garageport finns nu på startskärmen. Öppna den därifrån och skriv in ditt registreringsnummer.");
+        } else {
+          installDone("Installationen avbröts", "Ladda om sidan för att försöka igen, eller följ stegen nedan.");
+        }
+      });
+    });
+    window.addEventListener("appinstalled", function () {
+      installDone("Klart! 🎉", "Garageport finns nu på startskärmen. Öppna den därifrån och skriv in ditt registreringsnummer.");
     });
 
     document.getElementById("copy-btn").addEventListener("click", function () {
