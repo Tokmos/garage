@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Test: öppna i Chrome</title>
+<style>
+  :root { --bg: #f1f5f9; --ink: #0f172a; --muted: #55657c; --card: #fff; --line: #d7dfe8; --btn: #15803d; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #0f172a; --ink: #f1f5f9; --muted: #9aa9bf; --card: #1a2438; --line: #2c3a52; --btn: #16a34a; }
+  }
+  :root[data-theme="dark"] { --bg: #0f172a; --ink: #f1f5f9; --muted: #9aa9bf; --card: #1a2438; --line: #2c3a52; --btn: #16a34a; }
+  body { margin: 0; padding: 20px 16px 40px; background: var(--bg); color: var(--ink);
+         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.5; }
+  .wrap { max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+  h1 { font-size: 22px; margin: 0; }
+  p { margin: 0; color: var(--muted); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+  .card b { font-size: 17px; }
+  a.btn { display: block; margin-top: 10px; padding: 14px; border-radius: 10px; background: var(--btn);
+          color: #fff; font-weight: 800; text-align: center; text-decoration: none; font-size: 17px; }
+  code { font-size: 12px; word-break: break-all; color: var(--muted); display: block; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Test: öppna i Chrome</h1>
+  <p>Tryck på knapparna en i taget. Kommer du till Chrome, gå tillbaka till Edge och prova nästa. Notera vilka som fungerar.</p>
+
+  <div class="card"><b>A</b> · intent med Chromes schema, utan reservadress
+    <a class="btn" id="a">Test A</a></div>
+  <div class="card"><b>B</b> · Chromes schema direkt
+    <a class="btn" id="b">Test B</a></div>
+  <div class="card"><b>C</b> · intent med https, utan reservadress
+    <a class="btn" id="c">Test C</a></div>
+
+  <div class="card"><b>Din webbläsare</b><code id="ua"></code></div>
+</div>
+<script>
+  var app = "https://garage-six-lyart.vercel.app/";
+  document.getElementById("a").href = "intent://navigate?url=" + encodeURIComponent(app) + "#Intent;scheme=googlechrome;package=com.android.chrome;end";
+  document.getElementById("b").href = "googlechrome://navigate?url=" + encodeURIComponent(app);
+  document.getElementById("c").href = "intent://garage-six-lyart.vercel.app/#Intent;scheme=https;package=com.android.chrome;end";
+  document.getElementById("ua").textContent = navigator.userAgent;
+</script>
+</body>
+</html>
