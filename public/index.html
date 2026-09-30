@@ -8,6 +8,8 @@
   <meta name="apple-mobile-web-app-title" content="Garageport"/>
   <meta name="theme-color" content="#0f172a"/>
   <link rel="manifest" href="/manifest.json"/>
+  <!-- Statistik (Umami, inga cookies) -->
+  <script defer src="https://cloud.umami.is/script.js" data-website-id="233ed59d-6940-4437-bf25-aa2718dbcc61"></script>
   <link rel="apple-touch-icon" href="/icon-192.png"/>
   <title>Garageport</title>
 
@@ -645,6 +647,30 @@
     .then(list => { DOORS = list; renderDoors(); if (useGps) startGeolocation(); })
     .catch(() => { document.getElementById("doorStatus").textContent = "Kunde inte ladda dörrar"; });
 
+  /* ── Statistik (Umami) – sparar aldrig registreringsnummer ── */
+  const isInstalled = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  function track(name, data) {
+    try { window.umami && window.umami.track(name, data); } catch {}
+  }
+  // Skriptet laddas asynkront – vänta tills det finns (max ~10 s)
+  (function trackAppStart(tries) {
+    if (window.umami) return track("Appen öppnad", { app: isInstalled ? "installerad" : "webbläsare" });
+    if (tries > 0) setTimeout(() => trackAppStart(tries - 1), 500);
+  })(20);
+
+  function trackOpen(btnId, result, errorMsg) {
+    const { door, mode } = resolveDoor();
+    const data = {
+      dörr:     door ? door.name : "okänd",
+      resultat: result,
+      val:      { off: "manuellt", manual: "manuellt (GPS på)", gps: "GPS", uncertain: "GPS osäker", far: "GPS långt bort", nopos: "GPS utan position" }[mode] || mode,
+      fordon:   btnId === "openBtn2" ? "2" : "1",
+      app:      isInstalled ? "installerad" : "webbläsare",
+    };
+    if (errorMsg) data.fel = errorMsg;
+    track("Öppna dörr", data);
+  }
+
   /* ── Open door ── */
   async function openDoor(btnId, regnr) {
     const btn = document.getElementById(btnId);
@@ -661,6 +687,7 @@
       });
       const data = await res.json();
       btn.classList.remove("loading");
+      trackOpen(btnId, data.ok ? "ok" : "fel", data.ok ? null : data.msg);
       if (data.ok) {
         if (door) localStorage.setItem("lastDoor", lastDoor = door.id);
         btn.classList.add("success");
@@ -673,6 +700,7 @@
       btn.classList.remove("loading");
       btn.classList.add("error");
       showToast("❌ Ingen kontakt med servern", "error");
+      trackOpen(btnId, "nätverksfel", null);
     }
 
     setTimeout(() => btn.classList.remove("success", "error"), 2500);
