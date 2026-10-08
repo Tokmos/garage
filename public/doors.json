@@ -1,5 +1,6 @@
 [
   { "id": "121503", "name": "Gävlegatan",          "lat": 59.347399, "lng": 18.033510 },
   { "id": "121500", "name": "Nina Einhorns gata",  "lat": 59.347899, "lng": 18.035019 },
-  { "id": "121529", "name": "Anna Whitlocks gata", "lat": 59.348330, "lng": 18.035965 }
+  { "id": "121529", "name": "Anna Whitlocks gata", "lat": 59.348330, "lng": 18.035965 },
+  { "id": "121504", "name": "Sonja Kovalevskys gata", "lat": 59.347150, "lng": 18.034650 }
 ]
