@@ -344,22 +344,26 @@
       min-height: 20px;
     }
     #doorStatus.warn { color: #fbbf24; }
-    #doorChips { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    #doorChips { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .door-chip {
-      flex: 1;
-      padding: 10px 6px;
+      min-height: 76px;
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
       background: var(--surface);
-      border: 1.5px solid #334155;
-      border-radius: 12px;
+      border: 2px solid #334155;
+      border-radius: 16px;
       color: var(--muted);
-      font-size: 13px;
+      font-size: 16px;
       font-weight: 700;
       line-height: 1.25;
       cursor: pointer;
       transition: background 0.2s, border-color 0.2s, color 0.2s;
     }
     .door-chip.selected { border-color: var(--green); color: var(--text); background: #14532d; }
-    .door-chip .chip-dist { display: block; font-size: 11px; font-weight: 600; color: var(--muted); margin-top: 2px; }
+    .door-chip .chip-dist { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-top: 4px; }
 
     /* ── Flyttmeddelande (visas bara på gamla Render-adressen) ── */
     #moveBanner {
